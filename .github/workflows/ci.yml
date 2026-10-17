@@ -1,6 +1,5 @@
 name: Go Microservice CI
 
-# 定義觸發條件：當推送到 main 分支或發起 Pull Request 時觸發
 on:
   push:
     branches: [ "main" ]
@@ -9,27 +8,22 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest # 使用 GitHub 提供的 Ubuntu 雲端虛擬機環境
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. 將程式碼 Checkout 到虛擬機中
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 設定 Go 語言環境
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.27'
 
-      # 3. 下載專案相依性套件
       - name: Install dependencies
         run: go mod download
 
-      # 4. 執行單元測試 (帶有詳細輸出與覆蓋率)
       - name: Run Unit Tests
         run: go test -v -race ./...
 
-      # 5. 測試建置 Docker 映像檔 (確保 Dockerfile 語法與編譯正確)
-      - name: Build Docker Image
+      - name: Build Docker Image (Local test)
         run: docker build -t go-gitops-demo:latest .
