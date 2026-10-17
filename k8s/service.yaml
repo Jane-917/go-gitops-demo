@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-gitops-demo-svc
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: go-gitops-demo
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
