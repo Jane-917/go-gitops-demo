@@ -30,7 +30,7 @@ WORKDIR /app
 COPY --from=builder /app/main .
 
 # 複製必要的設定檔 (.env)
-COPY --from=builder /app/.env .
+
 
 # 暴露服務使用的埠號
 EXPOSE 8080
