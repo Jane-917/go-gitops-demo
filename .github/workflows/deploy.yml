@@ -31,16 +31,19 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    # 5. 建置並推送 Docker 映像檔（使用 Git SHA 作為版號）
+    # 5. 建置並推送 Docker 映像檔（強制將 repository 轉為小寫）
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}:${{ github.sha }}
-          ghcr.io/${{ github.repository }}:latest
-
+          ghcr.io/${{ 
+            github.repository 
+          }}:${{ github.sha }}
+          ghcr.io/${{ 
+            github.repository 
+          }}:latest
     # 6. 動態更新 Kubernetes 部署清單中的映像檔標籤
     - name: Update Kubernetes Manifests
       run: |
