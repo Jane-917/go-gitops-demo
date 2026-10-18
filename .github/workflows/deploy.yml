@@ -3,9 +3,21 @@ name: Go Microservice CI/CD
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
+
+# GHCR 發布需要 packages: write；回寫部署清單需要 contents: write。
+permissions:
+  contents: write
+  packages: write
+
+# 避免多個部署流程同時修改並推送同一份清單。
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     
     steps:
@@ -16,13 +28,13 @@ jobs:
     # 2. 將 Repository 名稱強制轉為小寫（解決 GHCR 大寫報錯問題）
     - name: Downcase repository name
       run: |
-        echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+        echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
     # 3. 設定 Go 環境
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version-file: go.mod
 
     # 4. 執行 CI 單元測試
     - name: Run Unit Tests
@@ -45,16 +57,28 @@ jobs:
         tags: |
           ghcr.io/${{ env.REPO_LOWER }}:${{ github.sha }}
           ghcr.io/${{ env.REPO_LOWER }}:latest
+        labels: |
+          org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
     # 7. 動態更新 Kubernetes 部署清單中的映像檔標籤
     - name: Update Kubernetes Manifests
+      env:
+        IMAGE: ghcr.io/${{ env.REPO_LOWER }}:${{ github.sha }}
       run: |
-        sed -i 's|image: ghcr.io/.*:.*|image: ghcr.io/${{ env.REPO_LOWER }}:${{ github.sha }}|g' k8s/deployment.yaml
+        # 只更新此應用的映像；找不到或出現多筆時，立即報錯。
+        test "$(grep -Ec '^[[:space:]]*image: ghcr\.io/[^[:space:]]*/go-gitops-demo:' k8s/deployment.yaml)" -eq 1
+        sed -i -E "s|^([[:space:]]*image: )ghcr\.io/[^[:space:]]*/go-gitops-demo:.*$|\1${IMAGE}|" k8s/deployment.yaml
 
     # 8. 提交並將更新後的 YAML 推送回 Repository
     - name: Commit and Push Manifest Changes
       run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git commit -am "chore(k8s): update image tag to ${{ github.sha }}" || echo "No changes to commit"
-        git push
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add -- k8s/deployment.yaml
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+          exit 0
+        fi
+        git commit -m "chore(k8s): update image tag to $GITHUB_SHA"
+        git pull --rebase origin main
+        git push origin HEAD:main
