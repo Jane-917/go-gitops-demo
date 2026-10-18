@@ -1,0 +1,55 @@
+name: Go Microservice CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 1. 簽出程式碼
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2. 設定 Go 環境
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    # 3. 執行 CI 單元測試
+    - name: Run Unit Tests
+      run: go test -v ./...
+
+    # 4. 登入 GitHub Container Registry (GHCR)
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # 5. 建置並推送 Docker 映像檔（使用 Git SHA 作為版號）
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}:${{ github.sha }}
+          ghcr.io/${{ github.repository }}:latest
+
+    # 6. 動態更新 Kubernetes 部署清單中的映像檔標籤
+    - name: Update Kubernetes Manifests
+      run: |
+        sed -i 's|image: ghcr.io/.*:.*|image: ghcr.io/${{ github.repository }}:${{ github.sha }}|g' k8s/deployment.yaml
+
+    # 7. 提交並將更新後的 YAML 推送回 Repository（確保 Git 是唯一事實來源）
+    - name: Commit and Push Manifest Changes
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git commit -am "chore(k8s): update image tag to ${{ github.sha }}"
+        git push

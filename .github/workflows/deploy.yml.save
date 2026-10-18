@@ -1,0 +1,5 @@
+git add .github/workflows/deploy.yml
+git commit -m "ci: add github actions workflow for deployment"
+git push origin main
+
+
