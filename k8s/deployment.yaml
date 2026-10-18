@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: go-gitops-demo
-        image: ghcr.io/jane-917/go-gitops-demo:latest
+        image: ghcr.io/jane-917/go-gitops-demo:e06363166306f58a7d77db5e8bf19226a50de4ba
         ports:
         - containerPort: 8080
         resources:
